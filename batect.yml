@@ -1,0 +1,52 @@
+containers:
+  test-env:
+    build_directory: .batect/puppeteer
+    volumes:
+      - local: <{batect.project_directory}
+        container: /code
+        options: cached
+      - local: ./screenshots
+        container: /code/screenshots
+    working_directory: /code
+    enable_init_process: true
+  storybook-env:
+    build_directory: .batect/storybook
+    volumes:
+      - local: <{batect.project_directory}/../atlassian-frontend
+        container: /af
+        options: cached
+    working_directory: /af
+    enable_init_process: true
+tasks:
+  sh:
+    run:
+      container: test-env
+      command: bash
+  # runs storybook using atlassian-frontend
+  storybook:
+    run:
+      container: storybook-env
+      ports:
+        - local: 56789
+          container: 56789
+  # runs the test only;
+  # when running locally, run storybook first (keep it running)
+  # then run this command
+  test:
+    run:
+      container: test-env
+      command: mocha --timeout 75000 puppeteer.test.js
+      environment:
+        STORYBOOK_HOST: host.docker.internal
+        STORYBOOK_PORT: 56789
+  # runs the storybook & test together;
+  # not ideal for debugging (storybook takes a while to spin up)
+  test-ci:
+    run:
+      container: test-env
+      command: mocha --timeout 75000 puppeteer.test.js
+      environment:
+        STORYBOOK_HOST: storybook-env
+        STORYBOOK_PORT: 56789
+    dependencies:
+      - storybook-env
